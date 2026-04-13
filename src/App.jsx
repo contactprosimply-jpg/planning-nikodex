@@ -55,6 +55,9 @@ function Login({ onLogin }) {
       <br /><br />
 
       <button onClick={handleLogin}>Connexion</button>
+      <button onClick={() => setOrderAsc(!orderAsc)}>
+  {orderAsc ? "🔼 Ancien" : "🔽 Récent"}
+</button>
     </div>
   );
 }
@@ -68,8 +71,6 @@ export default function App() {
   const [filter, setFilter] = useState("");
   const [darkMode, setDarkMode] = useState(true);
   const [editingId, setEditingId] = useState(null);
-
-  // 🔥 TRI
   const [orderAsc, setOrderAsc] = useState(false);
 
   const [form, setForm] = useState({
@@ -86,8 +87,8 @@ export default function App() {
   }
 
   useEffect(() => {
-    fetchEntries();
-  }, [orderAsc]);
+  fetchEntries();
+}, [orderAsc]);
 
   /* FETCH */
   const fetchEntries = async () => {
@@ -156,7 +157,16 @@ export default function App() {
 
   /* DELETE */
   const deleteEntry = async (id) => {
-    await supabase.from("entries").delete().eq("id", id);
+    const { error } = await supabase
+      .from("entries")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
     fetchEntries();
   };
 
@@ -215,11 +225,6 @@ export default function App() {
           ))}
         </select>
 
-        {/* 🔥 BOUTON TRI */}
-        <button onClick={() => setOrderAsc(!orderAsc)}>
-          {orderAsc ? "🔼 Ancien" : "🔽 Récent"}
-        </button>
-
         <button onClick={exportPDF}>📄 PDF</button>
 
         <button
@@ -233,35 +238,104 @@ export default function App() {
       </div>
 
       {/* FORM */}
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: 10,
+          marginBottom: 15,
+        }}
+      >
         <input
           type="date"
           value={form.date}
           onChange={(e) => setForm({ ...form, date: e.target.value })}
-          style={{ background: "#fff", color: "#000" }}
+          style={{
+            padding: 14,
+            borderRadius: 8,
+            backgroundColor: "#fff",
+            color: "#000",
+            border: "1px solid #ccc",
+            colorScheme: "light",
+          }}
         />
 
-        <button type="button" onClick={() => {
-          const today = new Date().toISOString().split("T")[0];
-          setForm({ ...form, date: today });
-        }}>
+        <button
+          type="button"
+          onClick={() => {
+            const today = new Date().toISOString().split("T")[0];
+            setForm({ ...form, date: today });
+          }}
+        >
           📅 Aujourd’hui
         </button>
 
-        <input placeholder="Chantier" value={form.chantier} onChange={(e) => setForm({ ...form, chantier: e.target.value })} />
-        <input placeholder="Intervenant" value={form.intervenant} onChange={(e) => setForm({ ...form, intervenant: e.target.value })} />
-        <input placeholder="Tâche" value={form.tache} onChange={(e) => setForm({ ...form, tache: e.target.value })} />
-        <input placeholder="Durée" value={form.duree} onChange={(e) => setForm({ ...form, duree: e.target.value })} />
-        <input placeholder="Camion" value={form.camion} onChange={(e) => setForm({ ...form, camion: e.target.value })} />
+        <input
+          placeholder="Chantier"
+          value={form.chantier}
+          onChange={(e) =>
+            setForm({ ...form, chantier: e.target.value })
+          }
+        />
+        <input
+          placeholder="Intervenant"
+          value={form.intervenant}
+          onChange={(e) =>
+            setForm({ ...form, intervenant: e.target.value })
+          }
+        />
+        <input
+          placeholder="Tâche"
+          value={form.tache}
+          onChange={(e) => setForm({ ...form, tache: e.target.value })}
+        />
+        <input
+          placeholder="Durée"
+          value={form.duree}
+          onChange={(e) => setForm({ ...form, duree: e.target.value })}
+        />
+        <input
+          placeholder="Camion"
+          value={form.camion}
+          onChange={(e) => setForm({ ...form, camion: e.target.value })}
+        />
 
-        <button>{editingId ? "Modifier" : "Ajouter"}</button>
+        <button
+          style={{
+            gridColumn: "1 / -1",
+            padding: 15,
+            fontSize: 18,
+            borderRadius: 8,
+            background: "#3b82f6",
+            color: "white",
+          }}
+        >
+          {editingId ? "Modifier" : "Ajouter"}
+        </button>
       </form>
 
       {/* LISTE */}
       <div id="pdf">
         {filtered.map((e) => (
-          <div key={e.id}>
-            <b>{e.chantier}</b> — {e.tache} ({e.user})
+          <div
+            key={e.id}
+            style={{
+              padding: 15,
+              marginBottom: 10,
+              borderRadius: 10,
+              background: darkMode ? "#1e293b" : "#ffffff",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+            }}
+          >
+            <b>{e.chantier}</b> — {e.tache} ({e.user || "??"})
+            <br />
+            {e.date} | {e.intervenant} | {e.duree}h | {e.camion}
+
+            <div style={{ marginTop: 10 }}>
+              <button onClick={() => editEntry(e)}>✏️</button>
+              <button onClick={() => deleteEntry(e.id)}>❌</button>
+            </div>
           </div>
         ))}
       </div>
