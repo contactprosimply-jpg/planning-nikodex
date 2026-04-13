@@ -86,31 +86,60 @@ export default function App() {
     fetchEntries();
   }, []);
 
+  /* FETCH */
   const fetchEntries = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("entries")
       .select("*")
       .order("id", { ascending: false });
 
+    if (error) {
+      console.error(error);
+      return;
+    }
+
     setEntries(data || []);
   };
 
+  /* SUBMIT */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     const dataToSave = {
-      ...form,
-      user: user.initials, // 🔥 IMPORTANT
+      date: form.date,
+      chantier: form.chantier,
+      intervenant: form.intervenant,
+      tache: form.tache,
+      duree: form.duree,
+      camion: form.camion,
+      user: user?.initials || "??",
     };
 
+    let error;
+
     if (editingId) {
-      await supabase.from("entries").update(dataToSave).eq("id", editingId);
+      const res = await supabase
+        .from("entries")
+        .update(dataToSave)
+        .eq("id", editingId);
+
+      error = res.error;
     } else {
-      await supabase.from("entries").insert([dataToSave]);
+      const res = await supabase
+        .from("entries")
+        .insert([dataToSave]);
+
+      error = res.error;
+    }
+
+    if (error) {
+      console.error(error);
+      alert("Erreur Supabase !");
+      return;
     }
 
     setEditingId(null);
-    fetchEntries();
+    await fetchEntries();
 
     setForm({
       date: "",
@@ -122,21 +151,42 @@ export default function App() {
     });
   };
 
+  /* DELETE */
   const deleteEntry = async (id) => {
-    await supabase.from("entries").delete().eq("id", id);
+    const { error } = await supabase
+      .from("entries")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
     fetchEntries();
   };
 
+  /* EDIT */
   const editEntry = (entry) => {
-    setForm(entry);
+    setForm({
+      date: entry.date || "",
+      chantier: entry.chantier || "",
+      intervenant: entry.intervenant || "",
+      tache: entry.tache || "",
+      duree: entry.duree || "",
+      camion: entry.camion || "",
+    });
+
     setEditingId(entry.id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  /* FILTER */
   const filtered = filter
     ? entries.filter((e) => e.chantier === filter)
     : entries;
 
+  /* PDF */
   const exportPDF = () => {
     const input = document.getElementById("pdf");
     html2canvas(input).then((canvas) => {
@@ -164,14 +214,15 @@ export default function App() {
 
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="">Tous les chantiers</option>
-          {[...new Set(entries.map(e => e.chantier))].map((c, i) => (
-            <option key={i} value={c}>{c}</option>
+          {[...new Set(entries.map((e) => e.chantier))].map((c, i) => (
+            <option key={i} value={c}>
+              {c}
+            </option>
           ))}
         </select>
 
         <button onClick={exportPDF}>📄 PDF</button>
 
-        {/* LOGOUT */}
         <button
           onClick={() => {
             localStorage.removeItem("user");
@@ -202,7 +253,7 @@ export default function App() {
             backgroundColor: "#fff",
             color: "#000",
             border: "1px solid #ccc",
-            colorScheme: "light"
+            colorScheme: "light",
           }}
         />
 
@@ -216,13 +267,46 @@ export default function App() {
           📅 Aujourd’hui
         </button>
 
-        <input placeholder="Chantier" value={form.chantier} onChange={(e) => setForm({ ...form, chantier: e.target.value })} />
-        <input placeholder="Intervenant" value={form.intervenant} onChange={(e) => setForm({ ...form, intervenant: e.target.value })} />
-        <input placeholder="Tâche" value={form.tache} onChange={(e) => setForm({ ...form, tache: e.target.value })} />
-        <input placeholder="Durée" value={form.duree} onChange={(e) => setForm({ ...form, duree: e.target.value })} />
-        <input placeholder="Camion" value={form.camion} onChange={(e) => setForm({ ...form, camion: e.target.value })} />
+        <input
+          placeholder="Chantier"
+          value={form.chantier}
+          onChange={(e) =>
+            setForm({ ...form, chantier: e.target.value })
+          }
+        />
+        <input
+          placeholder="Intervenant"
+          value={form.intervenant}
+          onChange={(e) =>
+            setForm({ ...form, intervenant: e.target.value })
+          }
+        />
+        <input
+          placeholder="Tâche"
+          value={form.tache}
+          onChange={(e) => setForm({ ...form, tache: e.target.value })}
+        />
+        <input
+          placeholder="Durée"
+          value={form.duree}
+          onChange={(e) => setForm({ ...form, duree: e.target.value })}
+        />
+        <input
+          placeholder="Camion"
+          value={form.camion}
+          onChange={(e) => setForm({ ...form, camion: e.target.value })}
+        />
 
-        <button style={{ gridColumn: "1 / -1", padding: 15 }}>
+        <button
+          style={{
+            gridColumn: "1 / -1",
+            padding: 15,
+            fontSize: 18,
+            borderRadius: 8,
+            background: "#3b82f6",
+            color: "white",
+          }}
+        >
           {editingId ? "Modifier" : "Ajouter"}
         </button>
       </form>
@@ -230,10 +314,19 @@ export default function App() {
       {/* LISTE */}
       <div id="pdf">
         {filtered.map((e) => (
-          <div key={e.id} style={{ padding: 15, marginBottom: 10 }}>
-            <b>{e.chantier}</b> — {e.tache} ({e.user})
+          <div
+            key={e.id}
+            style={{
+              padding: 15,
+              marginBottom: 10,
+              borderRadius: 10,
+              background: darkMode ? "#1e293b" : "#ffffff",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+            }}
+          >
+            <b>{e.chantier}</b> — {e.tache} ({e.user || "??"})
             <br />
-            {e.date} | {e.intervenant} | {e.duree} | {e.camion}
+            {e.date} | {e.intervenant} | {e.duree}h | {e.camion}
 
             <div style={{ marginTop: 10 }}>
               <button onClick={() => editEntry(e)}>✏️</button>
