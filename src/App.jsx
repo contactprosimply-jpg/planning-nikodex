@@ -3,22 +3,47 @@ import { supabase } from "./supabase";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
-/* LOGIN SIMPLE */
+/* USERS */
+const USERS = [
+  { email: "b.uros@nikodex.fr", password: "Ukiuki16", initials: "UB" },
+  { email: "d.baralic@nikodex.fr", password: "Tatjana1977", initials: "DB" },
+  { email: "b.daniela@nikodex.fr", password: "Tatjana1977", initials: "KIKI" },
+  { email: "m.sunny@nikodex.fr", password: "Tatjana1977", initials: "SM" },
+  { email: "t.sacha@nikodex.fr", password: "Tatjana1977", initials: "ST" },
+  { email: "d.gilles@nikodex.fr", password: "Tatjana1977", initials: "GD" },
+];
+
+/* LOGIN */
 function Login({ onLogin }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = () => {
-    if (password === "nikodex123") {
-      localStorage.setItem("auth", "true");
-      onLogin();
+    const user = USERS.find(
+      (u) => u.email === email && u.password === password
+    );
+
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+      onLogin(user);
     } else {
-      alert("Mot de passe incorrect");
+      alert("Identifiants incorrects");
     }
   };
 
   return (
     <div style={{ padding: 40, textAlign: "center" }}>
       <h2>Planning NIKODEX</h2>
+
+      <input
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        style={{ padding: 10 }}
+      />
+
+      <br /><br />
+
       <input
         type="password"
         placeholder="Mot de passe"
@@ -26,15 +51,17 @@ function Login({ onLogin }) {
         onChange={(e) => setPassword(e.target.value)}
         style={{ padding: 10 }}
       />
+
       <br /><br />
+
       <button onClick={handleLogin}>Connexion</button>
     </div>
   );
 }
 
 export default function App() {
-  const [isAuth, setIsAuth] = useState(
-    localStorage.getItem("auth") === "true"
+  const [user, setUser] = useState(
+    JSON.parse(localStorage.getItem("user"))
   );
 
   const [entries, setEntries] = useState([]);
@@ -51,8 +78,8 @@ export default function App() {
     camion: "",
   });
 
-  if (!isAuth) {
-    return <Login onLogin={() => setIsAuth(true)} />;
+  if (!user) {
+    return <Login onLogin={setUser} />;
   }
 
   useEffect(() => {
@@ -71,10 +98,15 @@ export default function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const dataToSave = {
+      ...form,
+      user: user.initials, // 🔥 IMPORTANT
+    };
+
     if (editingId) {
-      await supabase.from("entries").update(form).eq("id", editingId);
+      await supabase.from("entries").update(dataToSave).eq("id", editingId);
     } else {
-      await supabase.from("entries").insert([form]);
+      await supabase.from("entries").insert([dataToSave]);
     }
 
     setEditingId(null);
@@ -130,11 +162,7 @@ export default function App() {
           {darkMode ? "☀️" : "🌙"}
         </button>
 
-        {/* FILTRE DROPDOWN */}
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        >
+        <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="">Tous les chantiers</option>
           {[...new Set(entries.map(e => e.chantier))].map((c, i) => (
             <option key={i} value={c}>{c}</option>
@@ -142,6 +170,16 @@ export default function App() {
         </select>
 
         <button onClick={exportPDF}>📄 PDF</button>
+
+        {/* LOGOUT */}
+        <button
+          onClick={() => {
+            localStorage.removeItem("user");
+            window.location.reload();
+          }}
+        >
+          🚪
+        </button>
       </div>
 
       {/* FORM */}
@@ -154,14 +192,12 @@ export default function App() {
           marginBottom: 15,
         }}
       >
-        {/* DATE FIX MOBILE */}
         <input
           type="date"
           value={form.date}
           onChange={(e) => setForm({ ...form, date: e.target.value })}
           style={{
             padding: 14,
-            fontSize: 16,
             borderRadius: 8,
             backgroundColor: "#fff",
             color: "#000",
@@ -186,33 +222,16 @@ export default function App() {
         <input placeholder="Durée" value={form.duree} onChange={(e) => setForm({ ...form, duree: e.target.value })} />
         <input placeholder="Camion" value={form.camion} onChange={(e) => setForm({ ...form, camion: e.target.value })} />
 
-        <button
-          style={{
-            gridColumn: "1 / -1",
-            padding: 15,
-            fontSize: 18,
-            borderRadius: 8,
-            background: "#3b82f6",
-            color: "white",
-          }}
-        >
+        <button style={{ gridColumn: "1 / -1", padding: 15 }}>
           {editingId ? "Modifier" : "Ajouter"}
         </button>
       </form>
 
-      {/* LISTE PDF */}
+      {/* LISTE */}
       <div id="pdf">
         {filtered.map((e) => (
-          <div
-            key={e.id}
-            style={{
-              padding: 15,
-              marginBottom: 10,
-              borderRadius: 10,
-              background: darkMode ? "#1e293b" : "#fff",
-            }}
-          >
-            <b>{e.chantier}</b> — {e.tache}
+          <div key={e.id} style={{ padding: 15, marginBottom: 10 }}>
+            <b>{e.chantier}</b> — {e.tache} ({e.user})
             <br />
             {e.date} | {e.intervenant} | {e.duree} | {e.camion}
 
