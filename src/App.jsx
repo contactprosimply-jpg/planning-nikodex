@@ -1,7 +1,42 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
+/* LOGIN SIMPLE */
+function Login({ onLogin }) {
+  const [password, setPassword] = useState("");
+
+  const handleLogin = () => {
+    if (password === "nikodex123") {
+      localStorage.setItem("auth", "true");
+      onLogin();
+    } else {
+      alert("Mot de passe incorrect");
+    }
+  };
+
+  return (
+    <div style={{ padding: 40, textAlign: "center" }}>
+      <h2>Planning NIKODEX</h2>
+      <input
+        type="password"
+        placeholder="Mot de passe"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        style={{ padding: 10 }}
+      />
+      <br /><br />
+      <button onClick={handleLogin}>Connexion</button>
+    </div>
+  );
+}
 
 export default function App() {
+  const [isAuth, setIsAuth] = useState(
+    localStorage.getItem("auth") === "true"
+  );
+
   const [entries, setEntries] = useState([]);
   const [filter, setFilter] = useState("");
   const [darkMode, setDarkMode] = useState(true);
@@ -15,6 +50,10 @@ export default function App() {
     duree: "",
     camion: "",
   });
+
+  if (!isAuth) {
+    return <Login onLogin={() => setIsAuth(true)} />;
+  }
 
   useEffect(() => {
     fetchEntries();
@@ -62,9 +101,19 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const filtered = entries.filter((e) =>
-    e.chantier?.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filtered = filter
+    ? entries.filter((e) => e.chantier === filter)
+    : entries;
+
+  const exportPDF = () => {
+    const input = document.getElementById("pdf");
+    html2canvas(input).then((canvas) => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF();
+      pdf.addImage(imgData, "PNG", 10, 10, 180, 0);
+      pdf.save("planning.pdf");
+    });
+  };
 
   const theme = {
     background: darkMode ? "#0f172a" : "#f1f5f9",
@@ -81,18 +130,21 @@ export default function App() {
           {darkMode ? "☀️" : "🌙"}
         </button>
 
-        <input
-          placeholder="🔍 Filtrer chantier"
+        {/* FILTRE DROPDOWN */}
+        <select
+          value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          style={{
-            flex: 1,
-            padding: 12,
-            borderRadius: 8,
-          }}
-        />
+        >
+          <option value="">Tous les chantiers</option>
+          {[...new Set(entries.map(e => e.chantier))].map((c, i) => (
+            <option key={i} value={c}>{c}</option>
+          ))}
+        </select>
+
+        <button onClick={exportPDF}>📄 PDF</button>
       </div>
 
-      {/* FORM GRID */}
+      {/* FORM */}
       <form
         onSubmit={handleSubmit}
         style={{
@@ -103,30 +155,30 @@ export default function App() {
         }}
       >
         {/* DATE FIX MOBILE */}
-<input
-  type="date"
-  value={form.date}
-  onChange={(e) => setForm({ ...form, date: e.target.value })}
-  style={{
-    width: "100%",
-    padding: 16,
-    fontSize: 16,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",   // 🔥 toujours blanc
-    color: "#000000",             // 🔥 texte noir
-    border: "1px solid #ccc",
-    colorScheme: "light"          // 🔥 force iPhone en mode clair
-  }}
-/>
-<button
-  type="button"
-  onClick={() => {
-    const today = new Date().toISOString().split("T")[0];
-    setForm({ ...form, date: today });
-  }}
->
-  📅 Aujourd’hui
-</button>
+        <input
+          type="date"
+          value={form.date}
+          onChange={(e) => setForm({ ...form, date: e.target.value })}
+          style={{
+            padding: 14,
+            fontSize: 16,
+            borderRadius: 8,
+            backgroundColor: "#fff",
+            color: "#000",
+            border: "1px solid #ccc",
+            colorScheme: "light"
+          }}
+        />
+
+        <button
+          type="button"
+          onClick={() => {
+            const today = new Date().toISOString().split("T")[0];
+            setForm({ ...form, date: today });
+          }}
+        >
+          📅 Aujourd’hui
+        </button>
 
         <input placeholder="Chantier" value={form.chantier} onChange={(e) => setForm({ ...form, chantier: e.target.value })} />
         <input placeholder="Intervenant" value={form.intervenant} onChange={(e) => setForm({ ...form, intervenant: e.target.value })} />
@@ -148,8 +200,8 @@ export default function App() {
         </button>
       </form>
 
-      {/* LISTE */}
-      <div>
+      {/* LISTE PDF */}
+      <div id="pdf">
         {filtered.map((e) => (
           <div
             key={e.id}
