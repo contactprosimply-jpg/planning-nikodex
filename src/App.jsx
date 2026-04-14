@@ -70,6 +70,24 @@ export default function App() {
   const [editingId, setEditingId] = useState(null);
   const [orderAsc, setOrderAsc] = useState(false);
 
+  const [selectedMonth, setSelectedMonth] = useState("Global");
+
+  const months = [
+    "Global",
+    "Janvier",
+    "Février",
+    "Mars",
+    "Avril",
+    "Mai",
+    "Juin",
+    "Juillet",
+    "Août",
+    "Septembre",
+    "Octobre",
+    "Novembre",
+    "Décembre",
+  ];
+
   const [form, setForm] = useState({
     date: "",
     chantier: "",
@@ -77,6 +95,7 @@ export default function App() {
     tache: "",
     duree: "",
     camion: "",
+    prix: "",
   });
 
   if (!user) {
@@ -113,6 +132,7 @@ export default function App() {
       tache: form.tache,
       duree: form.duree,
       camion: form.camion,
+      prix: Number(form.prix) || 0,
       user: user?.initials || "??",
     };
 
@@ -147,6 +167,7 @@ export default function App() {
       tache: "",
       duree: "",
       camion: "",
+      prix: "",
     });
   };
 
@@ -165,6 +186,7 @@ export default function App() {
       tache: entry.tache || "",
       duree: entry.duree || "",
       camion: entry.camion || "",
+      prix: entry.prix || "",
     });
 
     setEditingId(entry.id);
@@ -172,9 +194,22 @@ export default function App() {
   };
 
   /* FILTER */
-  const filtered = filter
-    ? entries.filter((e) => e.chantier === filter)
-    : entries;
+  const filtered = entries.filter((entry) => {
+    const chantierMatch = filter ? entry.chantier === filter : true;
+
+    if (selectedMonth === "Global") return chantierMatch;
+
+    const entryMonth = new Date(entry.date).getMonth();
+    const monthIndex = months.indexOf(selectedMonth) - 1;
+
+    return chantierMatch && entryMonth === monthIndex;
+  });
+
+  /* TOTAL */
+  const totalPrix = filtered.reduce(
+    (sum, e) => sum + (e.prix || 0),
+    0
+  );
 
   /* PDF */
   const exportPDF = () => {
@@ -196,6 +231,25 @@ export default function App() {
     <div style={{ ...theme, minHeight: "100vh", padding: 15 }}>
       <h2 style={{ textAlign: "center" }}>Planning Chantier</h2>
 
+      {/* ONGLET MOIS */}
+      <div style={{ display: "flex", gap: 5, overflowX: "auto", marginBottom: 10 }}>
+        {months.map((m) => (
+          <button
+            key={m}
+            onClick={() => setSelectedMonth(m)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 5,
+              background: selectedMonth === m ? "#2563eb" : "#ccc",
+              color: selectedMonth === m ? "#fff" : "#000",
+              border: "none",
+            }}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+
       {/* TOP BAR */}
       <div style={{ display: "flex", gap: 10, marginBottom: 15 }}>
         <button onClick={() => setDarkMode(!darkMode)}>
@@ -211,7 +265,6 @@ export default function App() {
           ))}
         </select>
 
-        {/* TRI */}
         <button onClick={() => setOrderAsc(!orderAsc)}>
           {orderAsc ? "🔼 Ancien" : "🔽 Récent"}
         </button>
@@ -228,6 +281,11 @@ export default function App() {
         </button>
       </div>
 
+      {/* TOTAL */}
+      <div style={{ fontWeight: "bold", marginBottom: 10 }}>
+        💰 Total : {totalPrix} €
+      </div>
+
       {/* FORM */}
       <form
         onSubmit={handleSubmit}
@@ -238,19 +296,7 @@ export default function App() {
           marginBottom: 15,
         }}
       >
-        <input
-          type="date"
-          value={form.date}
-          onChange={(e) => setForm({ ...form, date: e.target.value })}
-          style={{
-            padding: 14,
-            borderRadius: 8,
-            backgroundColor: "#fff",
-            color: "#000",
-            border: "1px solid #ccc",
-            colorScheme: "light",
-          }}
-        />
+        <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
 
         <button
           type="button"
@@ -267,6 +313,7 @@ export default function App() {
         <input placeholder="Tâche" value={form.tache} onChange={(e) => setForm({ ...form, tache: e.target.value })} />
         <input placeholder="Durée" value={form.duree} onChange={(e) => setForm({ ...form, duree: e.target.value })} />
         <input placeholder="Camion" value={form.camion} onChange={(e) => setForm({ ...form, camion: e.target.value })} />
+        <input type="number" placeholder="Prix €" value={form.prix} onChange={(e) => setForm({ ...form, prix: e.target.value })} />
 
         <button style={{ gridColumn: "1 / -1", padding: 15 }}>
           {editingId ? "Modifier" : "Ajouter"}
@@ -275,28 +322,26 @@ export default function App() {
 
       {/* LISTE */}
       <div id="pdf">
-        {Array.isArray(filtered) &&
-          filtered.map((e) => (
-            <div
-              key={e.id}
-              style={{
-                padding: 15,
-                marginBottom: 10,
-                borderRadius: 10,
-                background: darkMode ? "#1e293b" : "#ffffff",
-                boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-              }}
-            >
-              <b>{e.chantier}</b> — {e.tache} ({e.user || "??"})
-              <br />
-              {e.date} | {e.intervenant} | {e.duree}h | {e.camion}
+        {filtered.map((e) => (
+          <div
+            key={e.id}
+            style={{
+              padding: 15,
+              marginBottom: 10,
+              borderRadius: 10,
+              background: darkMode ? "#1e293b" : "#ffffff",
+            }}
+          >
+            <b>{e.chantier}</b> — {e.tache} ({e.user || "??"})
+            <br />
+            {e.date} | {e.intervenant} | {e.duree}h | {e.camion} | 💰 {e.prix || 0} €
 
-              <div style={{ marginTop: 10 }}>
-                <button onClick={() => editEntry(e)}>✏️</button>
-                <button onClick={() => deleteEntry(e.id)}>❌</button>
-              </div>
+            <div style={{ marginTop: 10 }}>
+              <button onClick={() => editEntry(e)}>✏️</button>
+              <button onClick={() => deleteEntry(e.id)}>❌</button>
             </div>
-          ))}
+          </div>
+        ))}
       </div>
     </div>
   );
